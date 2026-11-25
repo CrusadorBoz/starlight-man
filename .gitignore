@@ -5,3 +5,15 @@
 /node_modules/
 # deploy scripts stay off GitHub (server layout)
 /deploy/
+
+# Previous, staged and failed builds kept beside the running one
+/starkindle.*
+
+# Never commit: databases, cookie jars, keys
+*.db
+*.db-*
+*.sqlite*
+*jar.txt
+.env*
+*.pem
+*.key
