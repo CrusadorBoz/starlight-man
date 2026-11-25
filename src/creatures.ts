@@ -1,350 +1,231 @@
-// Starkindle: the hero and the creatures, drawn from scratch with paths and
-// gradients, in the same glass-and-light style as Space Galaxy.
+// Starkindle: the lamplighter and the paper animals. Each is a handful of cut
+// shapes with a white edge, drawn once per step of its walk and kept.
 
-import { TAU, glow, lin, path, put, rad, sprite } from './paint.ts';
-import type { Ctx } from './paint.ts';
+import { TAU, halo, put, round, sprite, starPath, sticker } from './paint.ts';
+import type { Ctx, Piece, Sprite } from './paint.ts';
 import { Kind } from './types.ts';
 
-// ---- the hero: a lantern-hearted comet ----------------------------------------
+/** Steps in a walk. */
+const STEPS = 8;
+const step = (t: number, speed: number): number => Math.floor((t * speed) / 6) % STEPS;
+const swing = (f: number): number => Math.sin((f * TAU) / STEPS);
 
-function heroFin(x: Ctx): void { // right-hand fins, nose up
-  x.beginPath();
-  x.moveTo(4, -5);
-  x.bezierCurveTo(10, -10, 15, -13, 19, -21);
-  x.bezierCurveTo(21, -11, 19, -2, 12, 4);
-  x.lineTo(5, 9);
-  x.closePath();
-  x.fillStyle = lin(x, 4, 4, 20, -18, '#15417f', '#4f9be8', '#d8f2ff');
-  x.fill();
-  x.lineWidth = 1;
-  x.strokeStyle = '#eaf7ff';
-  x.stroke();
-  x.lineWidth = 1.5;
-  x.strokeStyle = '#5df2ff';
-  x.beginPath();
-  x.moveTo(6, -7.5);
-  x.bezierCurveTo(11, -11, 15, -14, 18.6, -20);
-  x.stroke();
-  x.beginPath(); // the small rear fin
-  x.moveTo(4, 8);
-  x.quadraticCurveTo(11, 10, 14, 19);
-  x.quadraticCurveTo(8, 17, 3, 15);
-  x.closePath();
-  x.fillStyle = lin(x, 4, 8, 14, 18, '#1a4a8d', '#a9d8ff');
-  x.fill();
-  x.lineWidth = 0.8;
-  x.stroke();
+// ---- the lamplighter --------------------------------------------------------------
+
+function lamplighter(f: number, lit: boolean): Piece[] {
+  const s = swing(f) * 5, coat = lit ? '#e2553d' : '#3b2a5e', dark = lit ? '#c1402b' : '#2b1d48', hat = lit ? '#22305c' : '#1d1336';
+  return [
+    [`M-13 ${-5 + s * 0.4}L-5 -5L-5 0L-12 ${1 + s * 0.4}Z`, lit ? '#ffdf8e' : '#5a4685'], // scarf tail
+    [`M-4 9L${-4 - s} 20L${1 - s} 20L2 9Z`, lit ? '#2b3558' : '#231638'],
+    [`M0 9L${0 + s} 20L${5 + s} 20L5 9Z`, lit ? '#3d4a78' : '#2b1d48'],
+    ['M-8 11L-6 -5Q0 -8 6 -5L9 11Q0 14 -8 11Z', coat],
+    ['M1 -7Q5 -6.5 6 -5L9 11Q5 13 1 13Z', dark],
+    ['M-7 -6Q0 -2 8 -6L7 -2Q0 2 -7 -2Z', lit ? '#fff2c9' : '#6f5aa0'],
+    [round(1, -10, 5.4), lit ? '#f9d3ad' : '#4a3873'],
+    ['M-7 -13.4L9 -13.4L9 -11.4L-7 -11.4Z', hat],
+    ['M-4 -13L-3 -22L6 -22L6.4 -13Z', hat],
+    ['M-3.7 -16L6.2 -16L6.4 -13.4L-4 -13.4Z', lit ? '#f2b63c' : '#5a4685'],
+    ['M4 0L16 -12L17.6 -10.6L6 3Z', lit ? '#8a5a30' : '#2b1d48'], // pole
+    ['M13.6 -12L21 -12L20 -2.6L14.6 -2.6Z', lit ? '#ffd24d' : '#140c26'], // lantern
+    ['M13 -14.4L21.6 -14.4L20.4 -11.6L14.2 -11.6Z', hat],
+    ...(lit ? [[round(3.6, -10.4, 0.9), '#22305c'] as Piece, ['M16.2 -10L18.4 -10L18 -4.6L16.6 -4.6Z', '#fffbe0'] as Piece] : []),
+  ];
 }
-function heroBody(x: Ctx): void {
-  x.beginPath();
-  x.moveTo(0, -25);
-  x.bezierCurveTo(5, -16, 9, -8, 8.4, 2);
-  x.bezierCurveTo(8, 10, 4, 15, 0, 18);
-  x.bezierCurveTo(-4, 15, -8, 10, -8.4, 2);
-  x.bezierCurveTo(-9, -8, -5, -16, 0, -25);
-  x.fillStyle = lin(x, -8, 0, 8, 0, '#3d7ac6', '#dff1ff', '#ffffff', '#a6cdf5', '#22539c');
-  x.fill();
-  x.lineWidth = 1;
-  x.strokeStyle = '#f4faff';
-  x.stroke();
-  x.fillStyle = '#143a78'; // nose blade
-  path(x, [[0, -25], [2.8, -17], [0, -14], [-2.8, -17]]);
-  x.fill();
-  x.fillStyle = rad(x, 0, 0, 0, 8, '#0b2a5c', '#174a91'); // the lantern's setting
-  x.beginPath();
-  x.ellipse(0, 0, 6.2, 8, 0, 0, TAU);
-  x.fill();
-  x.lineWidth = 1.2;
-  x.strokeStyle = '#ffd98a';
-  x.stroke();
-}
+const lampSprite = (f: number, lit: boolean): Sprite => sprite(`lamp${f}${lit ? 'y' : 'n'}`, 54, 60, (x) => sticker(x, lamplighter(f, lit), lit ? '#fffdf6' : '#d9c8ff'));
 
-export interface HeroLook { readonly t: number; readonly moving: boolean; readonly slow: boolean }
+export interface HeroLook { readonly t: number; readonly moving: boolean; readonly slow: boolean; readonly left: boolean }
 
-/** Draw the hero at 0,0, nose up. */
+/** Draw the lamplighter at 0,0. */
 export function drawHero(x: Ctx, o: HeroLook): void {
-  const beat = Math.sin(o.t * 0.18), len = (o.moving ? 26 : 13) * (0.9 + Math.random() * 0.2) * (o.slow ? 0.5 : 1);
-  const op = x.globalCompositeOperation;
-  x.globalCompositeOperation = 'lighter';
-  for (const [w, k, c] of [[7, 1.15, 'rgba(70,130,255,'], [4.4, 1, 'rgba(110,235,255,'], [2, 0.62, 'rgba(255,255,255,']] as const) {
-    x.fillStyle = lin(x, 0, 14, 0, 14 + len * k, c + '.8)', c + '0)');
-    x.beginPath();
-    x.moveTo(-w, 14);
-    x.quadraticCurveTo(-w * 0.6, 14 + len * k * 0.55, 0, 14 + len * k);
-    x.quadraticCurveTo(w * 0.6, 14 + len * k * 0.55, w, 14);
-    x.fill();
-  }
-  x.globalCompositeOperation = op;
-  const flap = 1 + (o.moving ? beat * 0.07 : 0);
-  for (const side of [1, -1]) {
-    x.save();
-    x.scale(side * flap, 1);
-    put(x, sprite('heroFin', 48, 52, heroFin));
-    x.restore();
-  }
-  put(x, sprite('heroBody', 24, 56, heroBody));
-  glow(x, 0, 0, 23 + beat * 2.5, '255,190,80', 0.95);
-  x.fillStyle = rad(x, 0, 1, 0, 6, '#fffef0', '#ffd668', '#ff9a2e');
-  x.beginPath(); // the flame
-  x.moveTo(0, -7 - beat);
-  x.bezierCurveTo(4.6, -2, 4.4, 5, 0, 6);
-  x.bezierCurveTo(-4.4, 5, -4.6, -2, 0, -7 - beat);
-  x.fill();
-}
-
-// ---- Prowler: a hunting fish of black glass ----------------------------------
-
-function prowlerBody(x: Ctx): void {
-  x.beginPath();
-  x.moveTo(0, -22);
-  x.bezierCurveTo(9, -18, 12, -7, 9, 3);
-  x.bezierCurveTo(7, 11, 4, 15, 0, 24);
-  x.bezierCurveTo(-4, 15, -7, 11, -9, 3);
-  x.bezierCurveTo(-12, -7, -9, -18, 0, -22);
-  x.fillStyle = lin(x, -11, 0, 11, 0, '#1c0d2e', '#6b2f8f', '#d79cff', '#5b2580', '#170a27');
-  x.fill();
-  x.lineWidth = 1.1;
-  x.strokeStyle = '#eec6ff';
-  x.stroke();
-  for (let i = 0; i < 5; i++) { // a ridge of crystals down its back
-    const y = -9 + i * 6, r = 4.4 - i * 0.6;
-    path(x, [[0, y - r], [r * 0.6, y], [0, y + r], [-r * 0.6, y]]);
-    x.fillStyle = lin(x, -r, y, r, y, '#ff4f9a', '#ffd3e8');
-    x.fill();
-  }
-}
-function prowlerFin(x: Ctx): void {
-  x.beginPath();
-  x.moveTo(7, -10);
-  x.bezierCurveTo(15, -14, 21, -9, 22, -1);
-  x.bezierCurveTo(17, -5, 12, -3, 8, 1);
-  x.closePath();
-  x.moveTo(7, 3);
-  x.bezierCurveTo(14, 2, 18, 8, 17, 15);
-  x.bezierCurveTo(13, 10, 9, 9, 6, 11);
-  x.closePath();
-  x.fillStyle = lin(x, 6, 0, 22, 0, 'rgba(160,60,210,.9)', 'rgba(255,110,190,.7)');
-  x.fill();
-  x.lineWidth = 0.9;
-  x.strokeStyle = 'rgba(255,200,240,.9)';
-  x.stroke();
-}
-function prowler(x: Ctx, o: FoeLook): void {
-  const swim = Math.sin(o.t * 0.2);
-  for (const side of [1, -1]) {
-    x.save();
-    x.scale(side, 1);
-    x.rotate(swim * 0.12 * side);
-    put(x, sprite('prFin', 48, 44, prowlerFin));
-    x.restore();
-  }
-  put(x, sprite('prBody', 28, 52, prowlerBody));
-  const hot = o.state === 1 ? '255,80,60' : '255,170,90';
-  for (const s of [-1, 1]) {
-    glow(x, s * 4.4, -13, 9, hot, 0.95);
-    x.fillStyle = '#fff3d6';
-    x.beginPath();
-    x.ellipse(s * 4.4, -13, 1.7, 2.6, s * 0.4, 0, TAU);
-    x.fill();
-  }
-}
-
-// ---- Sentinel: an eye inside turning rings ------------------------------------
-
-function sentinelEye(x: Ctx): void {
-  x.fillStyle = rad(x, -3, -4, 1, 15, '#ffffff', '#8ff0e2', '#127a86', '#052f45');
-  x.beginPath();
-  x.arc(0, 0, 11, 0, TAU);
-  x.fill();
-  x.lineWidth = 1.2;
-  x.strokeStyle = '#d8fffa';
-  x.stroke();
-}
-function sentinel(x: Ctx, o: FoeLook): void {
-  const hot = o.state === 1 || o.state === 2, spin = o.t * (hot ? 0.22 : 0.05), rgb = hot ? '255,90,60' : '90,255,230';
-  glow(x, 0, 0, hot ? 34 : 24, rgb, 0.7);
-  if (o.state === 1) x.translate(Math.sin(o.t * 2.3) * 1.4, 0);
-  for (let k = 0; k < 3; k++) {
-    x.save();
-    x.rotate(spin * (k % 2 ? -1 : 1) + k * 1.05);
-    x.scale(1, 0.34 + 0.28 * Math.abs(Math.sin(spin * 0.6 + k)));
-    x.lineWidth = 3.4;
-    x.strokeStyle = hot ? '#7c1f12' : '#0b5566';
-    x.beginPath();
-    x.arc(0, 0, 19 - k * 1.4, 0, TAU);
-    x.stroke();
-    x.lineWidth = 1.7;
-    x.strokeStyle = hot ? '#ffc09a' : '#b9fff4';
-    x.stroke();
-    x.restore();
-  }
-  put(x, sprite('senEye', 26, 26, sentinelEye));
-  const lx = Math.cos(o.look) * 4, ly = Math.sin(o.look) * 4;
-  x.fillStyle = hot ? '#ff3b1f' : '#04202e';
-  x.beginPath();
-  x.arc(lx, ly, hot ? 5.4 : 4.4, 0, TAU);
-  x.fill();
-  x.fillStyle = '#fff';
-  x.beginPath();
-  x.arc(lx - 1.6, ly - 1.7, 1.5, 0, TAU);
-  x.fill();
-}
-
-// ---- Weaver: spins webs of light ---------------------------------------------
-
-function weaverBody(x: Ctx): void {
-  x.fillStyle = rad(x, -3, 4, 1, 17, '#f0ffd8', '#63d66b', '#0d7350', '#04342f');
-  x.beginPath();
-  x.ellipse(0, 8, 9.5, 12, 0, 0, TAU);
-  x.fill();
-  x.lineWidth = 1.1;
-  x.strokeStyle = '#d9ffcf';
-  x.stroke();
-  x.strokeStyle = 'rgba(255,255,220,.75)';
-  for (const r of [3, 5.6, 8]) { x.beginPath(); x.ellipse(0, 9, r * 0.75, r, 0, 0, TAU); x.stroke(); }
-  x.fillStyle = rad(x, -1, -9, 1, 9, '#e9ffd6', '#4cc07a', '#0a5b4a');
-  x.beginPath();
-  x.arc(0, -8, 6.8, 0, TAU);
-  x.fill();
-  x.strokeStyle = '#d9ffcf';
-  x.stroke();
-}
-function weaver(x: Ctx, o: FoeLook): void {
-  x.lineWidth = 1.9;
-  for (const side of [1, -1]) for (let k = 0; k < 4; k++) {
-    const sw = Math.sin(o.t * 0.28 + k * 1.6 + (side > 0 ? 0 : 1.5)) * 3;
-    const ey = -17 + k * 11 + sw;
-    x.strokeStyle = '#0a5b4a';
-    x.lineWidth = 3;
-    x.beginPath();
-    x.moveTo(side * 4, -7 + k * 3);
-    x.quadraticCurveTo(side * 15, -14 + k * 8 + sw, side * 21, ey);
-    x.stroke();
-    x.strokeStyle = '#a5ffb0';
-    x.lineWidth = 1.3;
-    x.stroke();
-  }
-  put(x, sprite('weBody', 26, 46, weaverBody));
-  glow(x, 0, 9, 15, '130,255,140', 0.5 + 0.2 * Math.sin(o.t * 0.1));
-  for (const [ex, ey, r] of [[-2.6, -11, 1.8], [2.6, -11, 1.8], [-4.6, -8, 1.1], [4.6, -8, 1.1]] as const) {
-    x.fillStyle = '#fff7b0';
-    x.beginPath();
-    x.arc(ex, ey, r, 0, TAU);
-    x.fill();
-  }
-}
-
-// ---- Echo: your own shape, broken into colours ------------------------------------
-
-function echoShape(color: string, edge: string): (x: Ctx) => void {
-  return (x) => {
-    x.fillStyle = color;
-    for (const side of [1, -1]) {
-      x.beginPath();
-      x.moveTo(side * 4, -5);
-      x.bezierCurveTo(side * 10, -10, side * 15, -13, side * 19, -21);
-      x.bezierCurveTo(side * 21, -11, side * 19, -2, side * 12, 4);
-      x.lineTo(side * 5, 9);
-      x.closePath();
-      x.fill();
-    }
-    x.beginPath();
-    x.moveTo(0, -25);
-    x.bezierCurveTo(9, -12, 10, 6, 0, 18);
-    x.bezierCurveTo(-10, 6, -9, -12, 0, -25);
-    x.fill();
-    x.lineWidth = 1.3;
-    x.strokeStyle = edge;
-    x.stroke();
-  };
-}
-function echo(x: Ctx, o: FoeLook): void {
-  const ga = x.globalAlpha;
-  glow(x, 0, 0, 30, '170,60,255', 0.6);
-  const slip = 3 + 1.4 * Math.sin(o.t * 0.5);
-  x.globalAlpha = ga * 0.6;
-  put(x, sprite('echoR', 46, 50, echoShape('#e0218a', '#ff9ad2')), -slip, 0);
-  put(x, sprite('echoB', 46, 50, echoShape('#2f3fe0', '#9fb0ff')), slip, 0);
-  x.globalAlpha = ga;
-  put(x, sprite('echo', 46, 50, echoShape('#5a1796', '#e6c2ff')));
-  for (let k = 0; k < 3; k++) { // it keeps tearing
-    const y = -20 + ((o.t * 0.8 + k * 13) % 38);
-    x.fillStyle = 'rgba(240,200,255,.55)';
-    x.fillRect(-12 + k * 5, y, 14, 1.4);
-  }
-  x.fillStyle = '#12042b'; // an empty lantern
-  x.beginPath();
-  x.ellipse(0, 0, 5, 7, 0, 0, TAU);
-  x.fill();
-  x.lineWidth = 1.2;
-  x.strokeStyle = '#ff8fd0';
-  x.stroke();
-}
-
-// ---- Snuffer: a soot moth ---------------------------------------------------------
-
-function mothWing(x: Ctx): void {
-  x.beginPath();
-  x.moveTo(2, -4);
-  x.bezierCurveTo(10, -20, 24, -18, 22, -6);
-  x.bezierCurveTo(21, 1, 12, 3, 3, 2);
-  x.closePath();
-  x.moveTo(3, 2);
-  x.bezierCurveTo(12, 4, 17, 11, 13, 17);
-  x.bezierCurveTo(8, 19, 4, 12, 2, 6);
-  x.closePath();
-  x.fillStyle = lin(x, 2, 0, 23, -8, '#2b2735', '#6f6780', '#c9c0d6');
-  x.fill();
-  x.lineWidth = 0.9;
-  x.strokeStyle = '#efe8fa';
-  x.stroke();
-  x.fillStyle = '#ffb84d';
-  for (const [cx, cy, r] of [[15, -10, 3], [10, 10, 2]] as const) { x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.fill(); }
-  x.fillStyle = '#2b1a10';
-  for (const [cx, cy, r] of [[15, -10, 1.4], [10, 10, 0.9]] as const) { x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.fill(); }
-}
-function snuffer(x: Ctx, o: FoeLook): void {
-  const flap = 0.45 + 0.55 * Math.abs(Math.sin(o.t * 0.32));
-  for (const side of [1, -1]) {
-    x.save();
-    x.scale(side * flap, 1);
-    put(x, sprite('moth', 50, 46, mothWing));
-    x.restore();
-  }
-  x.fillStyle = lin(x, -3, 0, 3, 0, '#3a3345', '#b9aecb', '#2c2636');
-  x.beginPath();
-  x.ellipse(0, 1, 3.2, 11, 0, 0, TAU);
-  x.fill();
-  x.lineWidth = 1;
-  x.strokeStyle = '#d9cfe8';
-  for (const s of [-1, 1]) { x.beginPath(); x.moveTo(s, -9); x.quadraticCurveTo(s * 4, -15, s * 8, -17); x.stroke(); }
-  glow(x, 0, -8, 10, '255,190,90', 0.6);
-}
-
-/** look = the angle to the hero (it may be turned already; see Renderer). */
-export interface FoeLook { readonly kind: Kind; readonly t: number; readonly state: number; readonly look: number; readonly dazed: boolean }
-
-const DRAW: Readonly<Record<Kind, (x: Ctx, o: FoeLook) => void>> = {
-  [Kind.Prowler]: prowler, [Kind.Sentinel]: sentinel, [Kind.Weaver]: weaver, [Kind.Echo]: echo, [Kind.Snuffer]: snuffer,
-};
-
-/** Does this creature face the way it is going? */
-export const faces = (k: Kind): boolean => k !== Kind.Sentinel;
-
-/** Draw a creature at 0,0, facing up. */
-export function drawFoe(x: Ctx, o: FoeLook): void {
+  const f = o.moving ? step(o.t, o.slow ? 0.5 : 1.3) : 0;
   x.save();
-  x.lineJoin = x.lineCap = 'round';
-  if (o.dazed) x.globalAlpha *= 0.55;
-  DRAW[o.kind](x, o);
+  x.scale(o.left ? -1 : 1, 1);
+  x.translate(0, o.moving ? -Math.abs(swing(f)) * 1.8 : Math.sin(o.t * 0.06) * 0.6);
+  halo(x, 17, -7, 30 + Math.sin(o.t * 0.15) * 2, '255,226,120', 0.75);
+  put(x, lampSprite(f, true));
   x.restore();
 }
 
+// ---- Prowler: a wolf ---------------------------------------------------------------
+
+function wolf(f: number, hunting: boolean): Piece[] {
+  const s = swing(f) * 4.5;
+  return [
+    [`M-11 -1L-22 ${-9 + s * 0.6}L-20 1L-11 5Z`, '#9385cf'],
+    [`M-9 5L${-10 - s} 16L${-6 - s} 16L-4 5Z`, '#473a7d'],
+    [`M6 4L${6 + s} 16L${10 + s} 16L10 4Z`, '#473a7d'],
+    ['M-13 -2L-2 -7L9 -5L11 5L-10 7Z', '#5f50a2'],
+    ['M-2 -7L9 -5L11 5L2 6Z', '#6f60b4'],
+    [`M-6 6L${-5 + s} 16L${-1 + s} 16L0 6Z`, '#54468f'],
+    [`M3 5L${3 - s} 16L${7 - s} 16L8 5Z`, '#54468f'],
+    ['M9 -13L7.6 -22L14 -14Z', '#473a7d'],
+    ['M6 -3L9 -14L16 -12L24 -5L20 0L10 2Z', '#7567bd'],
+    ['M15 -6.4L24 -5L20 0L14 -1Z', '#efe9ff'],
+    ['M13 -13L16 -21L17 -11.4Z', '#54468f'],
+    [round(23, -4.8, 1.3), '#221a44'],
+    [hunting ? 'M12.4 -10.6L18 -8.4L13.4 -7.2Z' : 'M13 -9.6L17 -8.4L13.6 -7.6Z', hunting ? '#ff4a2e' : '#ffd24d'],
+  ];
+}
+
+// ---- Sentinel: an owl ----------------------------------------------------------------
+
+function owl(spread: boolean, hot: boolean): Piece[] {
+  const w = spread ? ['M-8 -8L-25 -15L-22 0L-9 8Z', 'M8 -8L25 -15L22 0L9 8Z'] : ['M-8 -8L-15 -2L-13 11L-7 9Z', 'M8 -8L15 -2L13 11L7 9Z'];
+  return [
+    [w[0] ?? '', '#7d5128'], [w[1] ?? '', '#7d5128'],
+    ['M-4 15L-5 20L-1 18Z', '#f2a03c'], ['M4 15L5 20L1 18Z', '#f2a03c'],
+    ['M0 -18L10 -13L11 6L0 18L-11 6L-10 -13Z', '#a9713a'],
+    ['M0 -18L10 -13L11 6L0 18Z', '#97622f'],
+    ['M0 -2L7.4 3L0 16L-7.4 3Z', '#f6e2b8'],
+    ['M-10 -12L-12 -23L-3 -15Z', '#7d5128'], ['M10 -12L12 -23L3 -15Z', '#7d5128'],
+    [round(-4.9, -8, 5.2), hot ? '#ff6a4a' : '#fff6da'], [round(4.9, -8, 5.2), hot ? '#ff6a4a' : '#fff6da'],
+    ['M-2.2 -5.4L2.2 -5.4L0 -0.6Z', '#f2a03c'],
+  ];
+}
+
+// ---- Weaver: a spider with a thread of silk ----------------------------------------------
+
+function spider(f: number): Piece[] {
+  const out: Piece[] = [];
+  for (const side of [1, -1]) for (let k = 0; k < 4; k++) {
+    const s = Math.sin((f * TAU) / STEPS + k * 1.7 + (side > 0 ? 0 : 1.4)) * 2.6, y0 = -5 + k * 3.6, y1 = -15 + k * 9.4 + s;
+    out.push([`M${side * 4} ${y0}L${side * 14} ${y1 - 4}L${side * 21} ${y1 + 3}L${side * 13.4} ${y1 - 1.4}Z`, k % 2 ? '#16705f' : '#1d8772']);
+  }
+  out.push(['M0 -2L9 4L7 15L0 19L-7 15L-9 4Z', '#25a58b'], ['M0 -2L9 4L7 15L0 19Z', '#1d8f78'], ['M0 3L4 9L0 15L-4 9Z', '#d9fff2'], [round(0, -7, 6.6), '#1b7d69']);
+  out.push([round(-2.6, -9, 1.9), '#fff6b8'], [round(2.6, -9, 1.9), '#fff6b8'], [round(-2.4, -9, 0.8), '#10302b'], [round(2.8, -9, 0.8), '#10302b']);
+  return out;
+}
+
+// ---- Snuffer: a moth -----------------------------------------------------------------------
+
+function moth(f: number): Piece[] {
+  const k = 0.45 + 0.55 * Math.abs(Math.cos((f * Math.PI) / STEPS));
+  const wing = (s: number): Piece[] => [
+    [`M${s * 2} -4L${s * 20 * k} -17L${s * 23 * k} -5L${s * 12 * k} 3L${s * 2} 2Z`, '#9b94ad'],
+    [`M${s * 2} 2L${s * 13 * k} 4L${s * 14 * k} 14L${s * 6 * k} 15L${s * 2} 7Z`, '#7f7893'],
+    [round(s * 15 * k, -8, 2.8), '#f2b63c'], [round(s * 15 * k, -8, 1.2), '#3a3346'],
+  ];
+  return [...wing(1), ...wing(-1), ['M-2.6 -10L2.6 -10L2.2 11L0 14L-2.2 11Z', '#4d465e'], ['M-2 -10L-7 -18L-6 -18.6L-0.6 -10Z', '#4d465e'], ['M2 -10L7 -18L6 -18.6L0.6 -10Z', '#4d465e']];
+}
+
+// ---- drawing one -------------------------------------------------------------------------------
+
+/** look = the angle to the lamplighter; left = facing left. */
+export interface FoeLook { readonly kind: Kind; readonly t: number; readonly state: number; readonly look: number; readonly dazed: boolean; readonly left: boolean; readonly moving: boolean }
+
+/** Draw a creature at 0,0. */
+export function drawFoe(x: Ctx, o: FoeLook): void {
+  x.save();
+  if (o.dazed) { x.globalAlpha *= 0.72; x.rotate(Math.sin(o.t * 0.12) * 0.16); }
+  const f = o.moving && !o.dazed ? step(o.t, 1) : 0, face = o.left ? -1 : 1;
+  switch (o.kind) {
+    case Kind.Prowler:
+      x.scale(face, 1);
+      x.translate(0, 2 - Math.abs(swing(f)) * 1.4);
+      put(x, sprite(`wolf${f}${o.state}`, 60, 54, (c) => sticker(c, wolf(f, o.state === 1))));
+      break;
+    case Kind.Sentinel: {
+      const hot = o.state === 1 || o.state === 2, flap = o.state === 2 || (o.state === 1 && Math.floor(o.t / 4) % 2 === 0);
+      if (o.state === 1) x.translate(Math.sin(o.t * 2.2) * 1.5, 0);
+      put(x, sprite(`owl${flap}${hot}`, 64, 58, (c) => sticker(c, owl(flap, hot))));
+      for (const s of [-1, 1]) {
+        x.fillStyle = hot ? '#4a0f08' : '#2b1a0c';
+        x.beginPath();
+        x.arc(s * 4.9 + Math.cos(o.look) * 2, -8 + Math.sin(o.look) * 2, 2.4, 0, TAU);
+        x.fill();
+      }
+      break;
+    }
+    case Kind.Weaver:
+      put(x, sprite(`spider${f}`, 58, 56, (c) => sticker(c, spider(f), '#fffdf6', 3.2)));
+      break;
+    case Kind.Echo:
+      x.scale(face, 1);
+      x.globalAlpha *= 0.9;
+      put(x, lampSprite(f, false));
+      break;
+    case Kind.Snuffer: {
+      const w = step(o.t, 2.6);
+      x.translate(0, Math.sin(o.t * 0.13) * 2);
+      put(x, sprite(`moth${w}`, 60, 48, (c) => sticker(c, moth(w), '#fffdf6', 3.2)));
+      break;
+    }
+  }
+  x.restore();
+}
+
+// ---- things in the maze --------------------------------------------------------------------------
+
+export const litStar = (): Sprite => sprite('lit', 24, 24, (x) => {
+  const p = new Path2D(starPath(5, 8.4, 3.8));
+  x.save();
+  x.shadowColor = 'rgba(90,50,0,.5)';
+  x.shadowBlur = 3;
+  x.shadowOffsetY = 2.4;
+  x.fillStyle = '#f7b928';
+  x.fill(p);
+  x.restore();
+  const g = x.createLinearGradient(-6, -7, 6, 7); // foil
+  g.addColorStop(0, '#fff3b8');
+  g.addColorStop(0.45, '#ffcf45');
+  g.addColorStop(1, '#e79a10');
+  x.fillStyle = g;
+  x.fill(p);
+  x.lineWidth = 1;
+  x.strokeStyle = '#a8650a';
+  x.stroke(p);
+});
+export const darkStar = (hole: string, lip: string): Sprite => sprite('dark' + hole, 20, 20, (x) => {
+  x.fillStyle = lip;
+  x.translate(0, 1);
+  x.fill(new Path2D(starPath(5, 5.6, 2.6)));
+  x.translate(0, -1);
+  x.fillStyle = hole;
+  x.fill(new Path2D(starPath(5, 5.2, 2.4)));
+});
+export const match = (): Sprite => sprite('match', 40, 44, (x) => sticker(x, [
+  ['M-2 -4L2 -4L2.6 17L-2.6 17Z', '#f0dcb0'], ['M-3 -8L3 -8L3 -1L-3 -1Z', '#d9402b'],
+  ['M0 -20C6 -13 7 -8 0 -4C-7 -8 -6 -13 0 -20Z', '#ff9a2e'], ['M0 -15C3 -11 3.4 -8 0 -6C-3.4 -8 -3 -11 0 -15Z', '#fff0a8'],
+]));
+export const door = (): Sprite => sprite('door', 44, 52, (x) => sticker(x, [
+  ['M-12 18L-12 -5A12 12 0 0 1 12 -5L12 18Z', '#3f4fa8'], ['M-9 18L-9 -5A9 9 0 0 1 9 -5L9 18Z', '#232c6b'],
+  [starPath(5, 5, 2.3).replace(/(-?[\d.]+) (-?[\d.]+)/g, (_, a: string, b: string) => `${a} ${Number(b) - 3}`), '#ffd24d'], [round(5.6, 8, 1.4), '#f2b63c'],
+]));
+export const crane = (f: number): Sprite => {
+  const w = swing(f) * 6;
+  return sprite(`crane${f}`, 60, 56, (x) => sticker(x, [
+    ['M-6 4L-24 -2L-12 8Z', '#e886a8'], [`M-4 2L-2 ${-19 + w}L8 4Z`, '#f7a9c4'], [`M0 3L12 ${-17 - w}L12 5Z`, '#ffd0df'],
+    ['M-8 3L10 2L4 11L-4 11Z', '#ee97b5'], ['M8 3L20 -10L24 -8L19 -6L12 8Z', '#f7a9c4'],
+  ]));
+};
+export const web = (): Sprite => sprite('web', 50, 50, (x) => {
+  x.shadowColor = 'rgba(20,32,70,.5)';
+  x.shadowBlur = 2;
+  x.shadowOffsetY = 1.4;
+  x.lineWidth = 1.3;
+  x.strokeStyle = '#ffffff';
+  x.beginPath();
+  for (let k = 0; k < 8; k++) { const a = (k * TAU) / 8; x.moveTo(0, 0); x.lineTo(Math.cos(a) * 20, Math.sin(a) * 20); }
+  for (const r of [6, 11.5, 17]) for (let k = 0; k <= 8; k++) {
+    const a = (k * TAU) / 8, b = a - TAU / 16;
+    if (k) x.quadraticCurveTo(Math.cos(b) * r * 0.8, Math.sin(b) * r * 0.8, Math.cos(a) * r, Math.sin(a) * r);
+    else x.moveTo(r, 0);
+  }
+  x.stroke();
+});
+export const wind = (): Sprite => sprite('wind', 26, 24, (x) => {
+  x.shadowColor = 'rgba(20,40,90,.35)';
+  x.shadowBlur = 2;
+  x.shadowOffsetY = 1.5;
+  x.fillStyle = '#ffffff';
+  x.fill(new Path2D('M-9 -3L0 -3L0 -7.5L9 0L0 7.5L0 3L-9 3L-6 0Z'));
+});
+
 export interface GuideEntry { readonly kind: Kind; readonly name: string; readonly text: string }
 export const GUIDE: readonly GuideEntry[] = [
-  { kind: Kind.Prowler, name: 'Prowler', text: 'Follows the shortest way to you, then loses the scent for a while. Some keep out of the light.' },
-  { kind: Kind.Sentinel, name: 'Sentinel', text: 'Patrols. If it sees you down a corridor it glows red, then charges until it meets a wall.' },
-  { kind: Kind.Weaver, name: 'Weaver', text: 'Keeps its distance and strings webs that slow you down.' },
-  { kind: Kind.Echo, name: 'Echo', text: 'Repeats every move you made five seconds ago. Do not double back.' },
-  { kind: Kind.Snuffer, name: 'Snuffer', text: 'Harmless, but it puts your stars out. Catch it for 300 points.' },
+  { kind: Kind.Prowler, name: 'Prowler', text: 'A wolf that follows the shortest way to you, then loses the scent for a while. Some keep off your lit stars.' },
+  { kind: Kind.Sentinel, name: 'Sentinel', text: 'An owl on patrol. If it sees you down a corridor its eyes turn red, then it swoops until it meets a cloud.' },
+  { kind: Kind.Weaver, name: 'Weaver', text: 'A spider that keeps its distance and strings webs that slow you down.' },
+  { kind: Kind.Echo, name: 'Echo', text: 'Your own shadow. It repeats every move you made five seconds ago, so do not double back.' },
+  { kind: Kind.Snuffer, name: 'Snuffer', text: 'A harmless moth that puts your stars out. Catch it for 300 points.' },
 ];

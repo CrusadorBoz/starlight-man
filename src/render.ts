@@ -1,36 +1,30 @@
 // Starkindle: everything on the canvas.
 
-import { drawFoe, drawHero, faces } from './creatures.ts';
+import { crane, darkStar, door, drawFoe, drawHero, litStar, match, web, wind } from './creatures.ts';
 import { ECHO_DELAY } from './foes.ts';
-import { STEP, unitX, unitY } from './game.ts';
+import { unitX, unitY } from './game.ts';
 import type { Game } from './game.ts';
 import { CELL, DIRS, DX, DY, HALF, ROWS } from './maze.ts';
 import type { Dir, Maze } from './maze.ts';
-import { SS, TAU, context, glow, lin, path, put, rad, sprite } from './paint.ts';
-import type { Ctx, Sprite } from './paint.ts';
-import { makeGalaxy, makePlanet, makeSky, seeded } from './sky.ts';
+import { SS, TAU, context, grain, halo, put, seeded } from './paint.ts';
+import type { Ctx } from './paint.ts';
+import { cloud, makeSky, themeOf } from './sky.ts';
+import type { Theme } from './sky.ts';
 import { Ev, Kind, Phase } from './types.ts';
-import type { GameEvent, Mover } from './types.ts';
+import type { GameEvent } from './types.ts';
 
 export const H = ROWS * CELL;
+/** Canvas pixels to the unit, at most. */
+export const SHARPEST = SS;
+const SERIF = '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif';
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
-interface Stone { readonly dark: string; readonly mid: string; readonly light: string; readonly edge: string; readonly rgb: string }
-/** Which of the three looks a sky has: blue first, then moonstone, then amethyst. */
-const armOf = (level: number): number => (Math.floor((level - 1) / 3) + 1) % 3;
-
-/** The crystal each look's walls are cut from: amethyst, aquamarine, moonstone. */
-const STONES: readonly [Stone, Stone, Stone] = [
-  { dark: '#34123f', mid: '#8a3f9c', light: '#f0b6ff', edge: '#fff0ff', rgb: '220,120,255' },
-  { dark: '#06384a', mid: '#178a96', light: '#9ff5ea', edge: '#f0fffd', rgb: '80,230,230' },
-  { dark: '#1f2a63', mid: '#5a76cf', light: '#d3e2ff', edge: '#ffffff', rgb: '150,180,255' },
-];
-
 interface Wall { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
-interface Bit { x: number; y: number; vx: number; vy: number; life: number; readonly max: number; readonly rgb: string; readonly size: number }
-interface Ring { readonly x: number; readonly y: number; readonly rgb: string; readonly r1: number; life: number; readonly max: number; readonly w: number }
+/** A scrap of coloured paper. */
+interface Scrap { x: number; y: number; vx: number; vy: number; turn: number; readonly spin: number; life: number; readonly max: number; readonly color: string; readonly size: number }
+interface Ring { readonly x: number; readonly y: number; readonly color: string; readonly r1: number; life: number; readonly max: number }
 interface Note { readonly x: number; y: number; readonly text: string; readonly color: string; life: number; readonly max: number }
-interface Dot { x: number; y: number; readonly z: number; readonly tw: number }
+interface Drift { x: number; readonly y: number; readonly s: number; readonly v: number }
 
 /** The walls of a maze as straight pieces, in units. */
 function wallsOf(m: Maze): Wall[] {
@@ -44,146 +38,62 @@ function wallsOf(m: Maze): Wall[] {
   return out;
 }
 
-/** The whole maze, drawn once per sky: a floor of shade and walls of cut crystal. */
-function drawMaze(m: Maze, level: number, pixels: number): HTMLCanvasElement {
-  const img = document.createElement('canvas'), W = m.cols * CELL;
+/** The whole maze, drawn once per sky: walls of layered paper cloud. */
+function drawMaze(m: Maze, t: Theme, level: number, pixels: number): HTMLCanvasElement {
+  const img = document.createElement('canvas'), W = m.cols * CELL, r = seeded(level * 97 + m.cols);
   img.width = Math.round(W * pixels);
   img.height = Math.round(H * pixels);
-  const x = context(img), stone = STONES[armOf(level)] ?? STONES[1], r = seeded(level * 97 + m.cols);
+  const x = context(img);
   x.scale(img.width / W, img.height / H);
-  x.lineCap = x.lineJoin = 'round';
-  x.fillStyle = 'rgba(6,18,64,.24)';
-  x.fillRect(0, 0, W, H);
-  const walls = wallsOf(m);
-  const all = (width: number, color: string, ox = 0, oy = 0): void => {
-    x.lineWidth = width;
-    x.strokeStyle = color;
-    x.beginPath();
-    for (const w of walls) { x.moveTo(w.x1 + ox, w.y1 + oy); x.lineTo(w.x2 + ox, w.y2 + oy); }
-    x.stroke();
-  };
-  all(26, `rgba(${stone.rgb},.10)`);
-  all(19, 'rgba(3,8,28,.5)', 1.5, 2.5);
-  all(14, stone.dark);
-  all(10, stone.mid);
-  x.globalAlpha = 0.85;
-  all(3.4, stone.light, -1.6, -1.9);
-  x.globalAlpha = 1;
-  all(1, stone.edge, -2.1, -2.5);
-  for (const w of walls) { // facets
-    const along = w.y1 === w.y2;
-    for (let k = 0; k < 3; k++) {
-      const t = 8 + r() * (CELL - 16), s = 2.5 + r() * 4;
-      const px = along ? w.x1 + t : w.x1 + (r() - 0.5) * 6, py = along ? w.y1 + (r() - 0.5) * 6 : w.y1 + t;
-      x.fillStyle = r() < 0.5 ? `rgba(255,255,255,${0.12 + r() * 0.3})` : `rgba(8,14,50,${0.12 + r() * 0.22})`;
-      path(x, along ? [[px - s, py], [px, py - 3], [px + s, py + 1], [px, py + 3]] : [[px, py - s], [px + 3, py], [px - 1, py + s], [px - 3, py]]);
-      x.fill();
-    }
+  const puffs: { x: number; y: number; r: number }[] = [];
+  for (const w of wallsOf(m)) for (let k = 0; k <= 6; k++) {
+    const along = k / 6, across = (r() - 0.5) * 4;
+    puffs.push({ x: w.x1 + (w.x2 - w.x1) * along + (w.x1 === w.x2 ? across : 0), y: w.y1 + (w.y2 - w.y1) * along + (w.y1 === w.y2 ? across : 0), r: 7 + r() * 3.6 });
   }
-  const posts = new Map<string, readonly [number, number]>();
-  for (const w of walls) for (const p of [[w.x1, w.y1], [w.x2, w.y2]] as const) posts.set(p.join(), p);
-  for (let c = 1; c < m.cols; c++) for (let q = 1; q < ROWS; q++) posts.set([c * CELL, q * CELL].join(), [c * CELL, q * CELL]);
-  for (const [px, py] of posts.values()) { // a cut gem on every corner
-    const s = 8.5 + r() * 3.5, turn = r() * TAU;
-    const pts = Array.from({ length: 6 }, (_, i) => [px + Math.cos(turn + (i * TAU) / 6) * s, py + Math.sin(turn + (i * TAU) / 6) * s * 0.92] as const);
-    x.fillStyle = rad(x, px - s * 0.35, py - s * 0.4, 0.5, s * 1.5, stone.edge, stone.light, stone.mid, stone.dark);
-    path(x, pts);
+  for (let c = 1; c < m.cols; c++) for (let q = 1; q < ROWS; q++) puffs.push({ x: c * CELL, y: q * CELL, r: 11.5 + r() * 1.5 }); // and a puff on every corner
+  const sheet = (fill: string, grow: number, ox: number, oy: number): void => {
+    x.fillStyle = fill;
+    x.beginPath();
+    for (const p of puffs) { x.moveTo(p.x + ox, p.y + oy); x.arc(p.x + ox, p.y + oy, p.r + grow, 0, TAU); }
     x.fill();
-    x.lineWidth = 0.9;
-    x.strokeStyle = stone.light;
-    x.stroke();
-    x.globalAlpha = 0.5;
+  };
+  sheet(t.shadow, 2.6, 2, 6);
+  sheet(t.shadow, 1, 1, 3.4);
+  sheet(t.under, 2.4, 0, 1.4);
+  sheet(t.cloud, 0, 0, 0);
+  x.lineWidth = 1.1; // pencilled curls
+  x.lineCap = 'round';
+  x.strokeStyle = t.line;
+  for (const p of puffs) {
+    if (r() < 0.5) continue;
+    const a = r() * TAU;
     x.beginPath();
-    for (const p of pts) { x.moveTo(px - s * 0.15, py - s * 0.2); x.lineTo(p[0], p[1]); }
+    x.arc(p.x + (r() - 0.5) * 4, p.y + (r() - 0.5) * 4, 2.4 + r() * 3, a, a + 1.6 + r() * 1.2);
     x.stroke();
-    x.globalAlpha = 1;
   }
+  x.globalCompositeOperation = 'source-atop';
+  grain(x, W, H, 0.05);
   return img;
 }
-
-// ---- small things -----------------------------------------------------------------
-
-function darkStar(x: Ctx): void {
-  path(x, [[0, -4.2], [3.2, 0], [0, 4.2], [-3.2, 0]]);
-  x.fillStyle = 'rgba(150,175,225,.30)';
-  x.fill();
-  x.lineWidth = 1.1;
-  x.strokeStyle = 'rgba(205,222,255,.85)';
-  x.stroke();
-}
-function litStar(x: Ctx): void {
-  const g = x.createRadialGradient(0, 0, 0, 0, 0, 13);
-  g.addColorStop(0, 'rgba(255,236,170,.85)');
-  g.addColorStop(0.3, 'rgba(255,200,90,.34)');
-  g.addColorStop(1, 'rgba(255,170,60,0)');
-  x.fillStyle = g;
-  x.fillRect(-14, -14, 28, 28);
-  x.fillStyle = '#fffbe6';
-  x.beginPath();
-  for (let k = 0; k < 8; k++) { const a = (k * TAU) / 8, r = k % 2 ? 1.5 : 6; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-  x.fill();
-}
-function prismArt(x: Ctx): void {
-  path(x, [[0, -12], [11, 8], [-11, 8]]);
-  x.fillStyle = lin(x, -10, 6, 10, -8, '#7fe9ff', '#ffffff', '#ff9de0', '#ffe28a');
-  x.fill();
-  x.lineWidth = 1.6;
-  x.strokeStyle = '#ffffff';
-  x.stroke();
-  x.lineWidth = 0.8;
-  x.strokeStyle = 'rgba(40,60,140,.6)';
-  x.beginPath();
-  x.moveTo(0, -12); x.lineTo(2, 2); x.lineTo(11, 8);
-  x.moveTo(2, 2); x.lineTo(-11, 8);
-  x.stroke();
-}
-function webArt(x: Ctx): void {
-  x.lineWidth = 1;
-  x.strokeStyle = 'rgba(205,255,205,.95)';
-  for (let k = 0; k < 8; k++) { const a = (k * TAU) / 8; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(a) * 20, Math.sin(a) * 20); x.stroke(); }
-  for (const r of [6, 11, 16]) {
-    x.beginPath();
-    for (let k = 0; k <= 8; k++) { const a = (k * TAU) / 8, b = a - TAU / 16; if (k) x.quadraticCurveTo(Math.cos(b) * r * 0.82, Math.sin(b) * r * 0.82, Math.cos(a) * r, Math.sin(a) * r); else x.moveTo(r, 0); }
-    x.stroke();
-  }
-}
-function wormArt(x: Ctx): void {
-  x.globalCompositeOperation = 'lighter';
-  for (let arm = 0; arm < 3; arm++) for (let i = 0; i < 40; i++) {
-    const t = i / 40, a = (arm * TAU) / 3 + t * 4.6, d = 4 + t * 20, s = 5 * (1 - t) + 2, px = Math.cos(a) * d, py = Math.sin(a) * d;
-    x.fillStyle = rad(x, px, py, 0, s, `rgba(150,210,255,${0.5 * (1 - t)})`, 'rgba(150,120,255,0)');
-    x.fillRect(px - s, py - s, s * 2, s * 2);
-  }
-}
-function chevron(x: Ctx): void {
-  x.lineWidth = 3;
-  x.strokeStyle = 'rgba(170,225,255,.9)';
-  path(x, [[-5, -7], [3, 0], [-5, 7]], false);
-  x.stroke();
-}
-
-// ---- the renderer ---------------------------------------------------------------------
 
 export class Renderer {
   private readonly c: HTMLCanvasElement;
   private readonly x: Ctx;
   /** prefers-reduced-motion */
   private readonly calm: boolean;
-  private readonly galaxy = makeGalaxy();
   private w = 10 * CELL;
-  private skies: HTMLCanvasElement[] = [];
-  private dots: Dot[] = [];
+  private readonly skies = new Map<string, HTMLCanvasElement>();
+  private drifts: Drift[] = [];
   private maze: HTMLCanvasElement | null = null;
   private mazeOf: Maze | null = null;
-  private bits: Bit[] = [];
+  private scraps: Scrap[] = [];
   private rings: Ring[] = [];
   private notes: Note[] = [];
   private shake = 0;
   private flash = 0;
   private time = 0;
-  private scroll = 0;
-  /** Where the hero was pointing, so it keeps facing that way when it stops. */
-  private angle = 0;
+  /** The lamplighter keeps facing the way it last went, left or right. */
+  private left = false;
 
   constructor(canvas: HTMLCanvasElement, calm: boolean) {
     this.c = canvas;
@@ -195,9 +105,9 @@ export class Renderer {
   /** Make the sky w units wide. */
   resize(w: number): void {
     this.w = w;
-    this.skies = [];
+    this.skies.clear();
     this.maze = null;
-    this.dots = Array.from({ length: Math.round(w / 5) }, () => ({ x: Math.random() * w, y: Math.random() * H, z: Math.random(), tw: Math.random() * TAU }));
+    this.drifts = Array.from({ length: Math.round(w / 190) }, (_, i) => ({ x: Math.random() * w, y: 60 + ((i * 137) % 300), s: rand(34, 62), v: rand(0.05, 0.14) }));
   }
   /** Draw with this many canvas pixels to the unit; true if that changed (and wiped) the canvas. */
   sharpness(pixels: number): boolean {
@@ -206,77 +116,63 @@ export class Renderer {
     this.c.width = w;
     this.c.height = h;
     this.maze = null;
+    this.skies.clear();
     return true;
   }
   reset(): void {
-    this.bits = [];
+    this.scraps = [];
     this.rings = [];
     this.notes = [];
-    this.shake = this.flash = this.angle = 0;
+    this.shake = this.flash = 0;
+    this.left = false;
     this.maze = null;
   }
 
-  private burst(px: number, py: number, rgb: string, n: number, speed: number, life = 40, size = 2.4): void {
+  private confetti(px: number, py: number, colors: readonly string[], n: number, speed: number, life = 46, size = 4): void {
     if (this.calm) n = Math.ceil(n / 3);
-    for (let i = 0; i < n && this.bits.length < 560; i++) {
-      const a = Math.random() * TAU, s = speed * rand(0.25, 1.15);
-      this.bits.push({ x: px, y: py, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: life * rand(0.6, 1.2), max: life, rgb, size: size * rand(0.6, 1.3) });
+    for (let i = 0; i < n && this.scraps.length < 420; i++) {
+      const a = Math.random() * TAU, s = speed * rand(0.3, 1.15);
+      this.scraps.push({ x: px, y: py, vx: Math.cos(a) * s, vy: Math.sin(a) * s - speed * 0.25, turn: Math.random() * TAU, spin: rand(-0.3, 0.3), life: life * rand(0.6, 1.2), max: life, color: colors[i % colors.length] ?? '#fff', size: size * rand(0.6, 1.3) });
     }
   }
-  private ring(px: number, py: number, rgb: string, r1: number, life = 26, w = 3): void { this.rings.push({ x: px, y: py, rgb, r1, life, max: life, w }); }
-  private note(px: number, py: number, text: string, color: string): void { this.notes.push({ x: px, y: py, text, color, life: 58, max: 58 }); }
+  private ring(px: number, py: number, color: string, r1: number, life = 28): void { this.rings.push({ x: px, y: py, color, r1, life, max: life }); }
+  private note(px: number, py: number, text: string, color = '#22324f'): void { this.notes.push({ x: px, y: py, text, color, life: 60, max: 60 }); }
 
-  /** Turn this frame's events into light. */
+  /** Turn this frame's events into paper. */
   events(list: readonly GameEvent[]): void {
+    const GOLD = ['#ffd24d', '#f7b928', '#fff0b0'], MIX = ['#e2553d', '#ffd24d', '#4b8fdd', '#fff6e0', '#5f50a2'];
     for (const e of list) {
       const { x: px, y: py } = e;
       switch (e.kind) {
-        case Ev.Star: this.burst(px, py, '255,220,130', 4, 1.5, 22, 1.5); break;
-        case Ev.Streak: this.note(px, py - 18, `STREAK ×${e.v}`, '#ffe08a'); this.ring(px, py, '255,215,120', 44, 22, 2); break;
-        case Ev.Prism: this.burst(px, py, '190,230,255', 22, 2.8, 36); this.ring(px, py, '220,240,255', 52, 28, 3); this.note(px, py - 18, 'FLARE READY', '#dff6ff'); break;
-        case Ev.Flare: this.flash = Math.max(this.flash, 0.22); this.ring(px, py, '255,240,190', 120, 30, 5); if (!this.calm) this.shake = Math.max(this.shake, 5); break;
-        case Ev.Daze: this.burst(px, py, '255,245,200', 22, 3.4, 34); this.note(px, py - 18, `DAZED +${e.v}`, '#fff2b8'); break;
-        case Ev.Hit: this.flash = 0.5; if (!this.calm) this.shake = 16; this.burst(px, py, '255,190,90', 80, 5.5, 70, 3.2); this.burst(px, py, '120,220,255', 50, 4, 60, 2.6); this.ring(px, py, '255,220,150', 130, 44, 6); break;
-        case Ev.CometGot: this.burst(px, py, '180,255,240', 50, 4.4, 52, 2.8); this.ring(px, py, '190,255,240', 80, 34, 4); this.note(px, py - 18, `COMET +${e.v.toLocaleString('en-US')}`, '#c8fff3'); break;
-        case Ev.Comet: this.ring(px, py, '180,255,240', 70, 40, 3); break;
-        case Ev.Snuff: this.burst(px, py, '120,110,140', 6, 1.2, 30, 2); break;
-        case Ev.Caught: this.burst(px, py, '220,205,240', 26, 3.2, 40); this.note(px, py - 18, `CAUGHT +${e.v}`, '#f0e6ff'); break;
-        case Ev.Stuck: this.burst(px, py, '190,255,190', 12, 2, 26); this.note(px, py - 18, 'STUCK', '#c8ffcd'); break;
-        case Ev.Warp: this.burst(px, py, '170,180,255', 26, 3.4, 36); this.ring(px, py, '170,200,255', 54, 28, 4); break;
-        case Ev.Tell: this.ring(px, py, '255,90,60', 40, 24, 3); break;
-        case Ev.Charge: this.burst(px, py, '255,120,80', 14, 2.6, 26); break;
-        case Ev.Spark: this.note(px, py - 24, 'EXTRA SPARK', '#ffd66b'); this.ring(px, py, '255,210,110', 80, 36, 4); break;
+        case Ev.Star: this.confetti(px, py, GOLD, 3, 1.5, 24, 2.4); break;
+        case Ev.Streak: this.note(px, py - 18, `Streak ×${e.v}`, '#9a5a00'); this.ring(px, py, '#ffd24d', 40, 24); break;
+        case Ev.Prism: this.confetti(px, py, ['#ff9a2e', '#d9402b', '#fff0a8'], 18, 2.6); this.note(px, py - 18, 'Match!', '#a32a16'); break;
+        case Ev.Flare: this.flash = Math.max(this.flash, 0.28); this.ring(px, py, '#fff6cf', 110, 30); if (!this.calm) this.shake = Math.max(this.shake, 4); break;
+        case Ev.Daze: this.confetti(px, py, ['#fff6cf', '#ffd24d', '#ffffff'], 18, 3); this.note(px, py - 20, `Dazed +${e.v}`, '#7a4a00'); break;
+        case Ev.Hit: this.flash = 0.4; if (!this.calm) this.shake = 14; this.confetti(px, py, MIX, 70, 5, 80, 6); this.ring(px, py, '#ffffff', 110, 40); break;
+        case Ev.Clear: for (let k = 0; k < 5; k++) this.confetti((this.w * (k + 0.5)) / 5, 120, MIX, 34, 5, 130, 6); break;
+        case Ev.CometGot: this.confetti(px, py, ['#f7a9c4', '#ffd0df', '#ffffff'], 40, 4, 60, 5); this.note(px, py - 20, `Crane +${e.v.toLocaleString('en-US')}`, '#a02c5c'); break;
+        case Ev.Comet: this.ring(px, py, '#f7a9c4', 60, 36); break;
+        case Ev.Snuff: this.confetti(px, py, ['#8d86a3', '#4d465e'], 5, 1.2, 30, 3); break;
+        case Ev.Caught: this.confetti(px, py, ['#9b94ad', '#f2b63c', '#ffffff'], 24, 3); this.note(px, py - 20, `Caught +${e.v}`, '#4d465e'); break;
+        case Ev.Stuck: this.confetti(px, py, ['#ffffff'], 10, 1.8, 28, 3); this.note(px, py - 20, 'Stuck!', '#16705f'); break;
+        case Ev.Warp: this.confetti(px, py, ['#3f4fa8', '#ffd24d', '#ffffff'], 22, 3); break;
+        case Ev.Tell: this.ring(px, py, '#ff4a2e', 38, 24); break;
+        case Ev.Charge: this.confetti(px, py, ['#a9713a', '#f6e2b8'], 12, 2.4, 30, 4); break;
+        case Ev.Spark: this.note(px, py - 26, 'Extra spark!', '#9a5a00'); this.ring(px, py, '#ffd24d', 70, 34); break;
         default: break;
       }
     }
   }
 
-  private background(level: number, dim: boolean, dt: number): void {
-    const x = this.x, arm = armOf(level);
-    this.scroll += 0.16 * dt * (this.calm ? 0.3 : 1);
-    const off = this.scroll % (H * 2), sky = (this.skies[arm] ??= makeSky(arm, this.w));
-    x.drawImage(sky, 0, off - H * 2, this.w, H * 2);
-    x.drawImage(sky, 0, off, this.w, H * 2);
-    x.save();
-    x.globalCompositeOperation = 'lighter';
-    x.globalAlpha = dim ? 0.3 : 0.85;
-    x.translate(dim ? this.w * 0.7 : this.w / 2, dim ? 210 : 270);
-    x.rotate(-0.45);
-    x.scale(1, 0.6);
-    x.rotate(this.time * (this.calm ? 0.0002 : 0.0011));
-    const gs = (dim ? 420 : 560) + (this.w - 448) * 0.4;
-    x.drawImage(this.galaxy, -gs / 2, -gs / 2, gs, gs);
-    x.restore();
-    if (dim) {
-      const r = seeded(level * 17 + 3);
-      x.globalAlpha = 0.5;
-      put(x, makePlanet(level, arm), this.w * (r() < 0.5 ? 0.12 : 0.88), 150 + r() * 320);
-      x.globalAlpha = 1;
+  private sky(t: Theme, busy: boolean): HTMLCanvasElement {
+    const key = t.top + busy;
+    let s = this.skies.get(key);
+    if (!s) {
+      s = makeSky(t, this.w, H, this.c.width / this.w, busy);
+      this.skies.set(key, s);
     }
-    for (const d of this.dots) {
-      x.fillStyle = `rgba(230,240,255,${(0.3 + d.z * 0.5) * (0.7 + 0.3 * Math.sin(this.time * 0.05 + d.tw))})`;
-      x.fillRect(d.x, d.y, 0.8 + d.z, 0.8 + d.z);
-    }
+    return s;
   }
 
   /** Draw one frame; null draws the title scene. dt is in ticks. */
@@ -285,72 +181,88 @@ export class Renderer {
     this.time += dt;
     x.setTransform(this.c.width / this.w, 0, 0, this.c.height / H, 0, 0);
     x.globalAlpha = 1;
-    x.globalCompositeOperation = 'source-over';
     if (this.shake > 0.2) {
       x.translate(rand(-0.5, 0.5) * this.shake, rand(-0.5, 0.5) * this.shake);
       this.shake *= Math.pow(0.88, dt);
     }
-    this.background(g?.level ?? 1, g !== null, dt);
+    const t = themeOf(g?.level ?? 1);
+    x.drawImage(this.sky(t, g === null), 0, 0, this.w, H);
     if (!g) {
-      this.titleScene();
+      this.titleScene(t, dt);
       return;
     }
     if (!this.maze || this.mazeOf !== g.maze) {
-      this.maze = drawMaze(g.maze, g.level, this.c.width / this.w);
+      this.maze = drawMaze(g.maze, t, g.level, this.c.width / this.w);
       this.mazeOf = g.maze;
     }
     const clearing = g.phase === Phase.Clear || g.phase === Phase.Pick || g.phase === Phase.Won;
-    const fade = clearing ? Math.max(0.12, 1 - (g.phase === Phase.Clear ? g.phaseT : 200) / 110) : g.phase === Phase.Ready ? Math.min(1, g.phaseT / 45) : 1;
-    x.globalAlpha = fade;
-    x.drawImage(this.maze, 0, 0, this.w, H);
+    this.path(g, clearing);
+    this.winds(g);
+    // The clouds drop in at the start and part when the sky is done.
+    const go = clearing ? Math.min(1, (g.phase === Phase.Clear ? g.phaseT : 200) / 110) : g.phase === Phase.Ready && !this.calm ? 1 - Math.min(1, g.phaseT / 40) : 0;
+    x.globalAlpha = 1 - go * (clearing ? 0.9 : 1);
+    x.drawImage(this.maze, 0, clearing ? 0 : -go * 60, this.w, H);
     x.globalAlpha = 1;
-    this.streams(g);
-    this.stars(g, clearing);
+    this.stars(g, t, clearing);
     if (!clearing) {
-      if (g.worm) for (const i of g.worm) this.worm((i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF);
-      for (const [i, t] of g.webs) {
-        x.globalAlpha = Math.min(1, t / 120);
-        put(x, sprite('web', 46, 46, webArt), (i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF);
+      if (g.worm) for (const i of g.worm) put(x, door(), (i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF - 2);
+      for (const [i, left] of g.webs) {
+        x.globalAlpha = Math.min(1, left / 120);
+        put(x, web(), (i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF);
         x.globalAlpha = 1;
       }
-      for (const i of g.prisms) this.prism((i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF);
-      if (g.comet) this.comet(g.comet, g.comet.life);
-      for (const f of g.foes) this.foe(g, f);
+      for (const i of g.prisms) this.matchAt((i % g.maze.w) * HALF + HALF, Math.floor(i / g.maze.w) * HALF + HALF);
       this.beam(g);
+      if (g.comet && !(g.comet.life < 120 && g.comet.life % 16 < 6)) put(x, crane(Math.floor(this.time / 5) % 8), unitX(g.comet), unitY(g.comet) + Math.sin(this.time * 0.1) * 2);
+      for (const f of g.foes) this.foe(g, f);
     }
     this.hero(g);
-    this.particles(dt);
+    this.loose(dt);
     if (this.flash > 0.01) {
-      x.fillStyle = `rgba(255,246,222,${this.calm ? this.flash * 0.3 : this.flash})`;
+      x.fillStyle = `rgba(255,248,222,${this.calm ? this.flash * 0.3 : this.flash})`;
       x.fillRect(-20, -20, this.w + 40, H + 40);
       this.flash *= Math.pow(0.86, dt);
     }
   }
 
-  private titleScene(): void {
-    const x = this.x, t = this.time, cx = this.w / 2, cy = 404;
-    for (let i = 0; i < 22; i++) { // a ring of stars being lit
-      const a = (i * TAU) / 22 - Math.PI / 2, on = ((t * 0.05) % 30) > i;
-      put(x, sprite(on ? 'lit' : 'dark', 28, 28, on ? litStar : darkStar), cx + Math.cos(a) * 185, cy + Math.sin(a) * 84);
+  private titleScene(t: Theme, dt: number): void {
+    const x = this.x;
+    for (const d of this.drifts) {
+      d.x += d.v * dt * (this.calm ? 0.2 : 1);
+      if (d.x > this.w + 90) d.x = -90;
+      x.save();
+      x.translate(d.x, d.y);
+      cloud(x, t, d.s);
+      x.restore();
     }
-    const a = (Math.min(22, (t * 0.05) % 30) / 22) * TAU - Math.PI / 2;
+    const n = Math.max(7, Math.round(this.w / 74)); // foil stars on threads
+    for (let i = 0; i < n; i++) {
+      const px = ((i + 0.5) * this.w) / n, len = Math.abs(px - this.w / 2) < 270 ? 8 + ((i * 83) % 22) : 80 + ((i * 83) % 130), a = this.calm ? 0 : Math.sin(this.time * 0.02 + i * 1.7) * 0.07;
+      const sx = px + Math.sin(a) * len, sy = Math.cos(a) * len;
+      x.lineWidth = 1.2;
+      x.strokeStyle = 'rgba(255,255,255,.75)';
+      x.beginPath();
+      x.moveTo(px, -4);
+      x.lineTo(sx, sy);
+      x.stroke();
+      x.save();
+      x.translate(sx, sy + 8);
+      x.rotate(a * 3);
+      x.scale(1.9, 1.9);
+      put(x, litStar());
+      x.restore();
+    }
     x.save();
-    x.translate(cx + Math.cos(a) * 185, cy + Math.sin(a) * 84);
-    x.rotate(Math.atan2(Math.cos(a) * 84, -Math.sin(a) * 185) + Math.PI / 2);
-    x.scale(1.9, 1.9);
-    drawHero(x, { t, moving: !this.calm, slow: false });
+    x.translate(this.w / 2, 432);
+    x.scale(3.1, 3.1);
+    drawHero(x, { t: this.time, moving: !this.calm, slow: true, left: false });
     x.restore();
   }
 
-  private stars(g: Game, clearing: boolean): void {
-    const x = this.x, m = g.maze, dark = sprite('dark', 28, 28, darkStar), lit = sprite('lit', 28, 28, litStar);
-    // The lit path glows.
-    x.save();
-    x.globalCompositeOperation = 'lighter';
+  /** A ribbon of cream paper along the lit stars. */
+  private path(g: Game, clearing: boolean): void {
+    const x = this.x, m = g.maze;
     x.lineCap = 'round';
-    x.lineWidth = clearing ? 4 : 15;
-    const swell = clearing ? 0.5 + 0.4 * Math.sin(this.time * 0.09) : 0.15;
-    x.strokeStyle = `rgba(255,206,110,${swell})`;
     x.beginPath();
     for (let y = 0; y < m.h; y++) for (let k = 0; k < m.w; k++) {
       if (g.lit[m.at(k, y)] !== 1) continue;
@@ -360,22 +272,36 @@ export class Renderer {
         x.lineTo(HALF + (k + DX[d]) * HALF, HALF + (y + DY[d]) * HALF);
       }
     }
-    x.stroke();
-    x.restore();
-    const up = clearing && g.phase === Phase.Clear && !this.calm ? Math.min(1, g.phaseT / 190) : 0;
-    for (let y = 0; y < m.h; y++) for (let k = 0; k < m.w; k++) {
-      if (!m.isOpen(k, y)) continue;
-      const on = g.lit[m.at(k, y)] === 1;
-      if (!on && clearing) continue;
-      const tw = on ? 0.82 + 0.18 * Math.sin(this.time * 0.07 + k * 1.7 + y * 2.3) : 0.75;
-      x.globalAlpha = tw;
-      put(x, on ? lit : dark, HALF + k * HALF, HALF + y * HALF - up * up * 14 * Math.sin(k + y));
+    for (const [w, c] of clearing ? [[2.4, 'rgba(255,255,255,.9)']] as const : [[22, 'rgba(40,50,90,.16)'], [18, '#fff4d2']] as const) {
+      x.lineWidth = w;
+      x.strokeStyle = c;
+      x.stroke();
     }
-    x.globalAlpha = 1;
   }
 
-  private streams(g: Game): void {
-    const x = this.x, m = g.maze, art = sprite('chev', 16, 20, chevron), move = this.calm ? 0.5 : (this.time * 0.03) % 1;
+  private stars(g: Game, t: Theme, clearing: boolean): void {
+    const x = this.x, m = g.maze, dark = darkStar(t.hole, t.lip), lit = litStar();
+    for (let y = 0; y < m.h; y++) for (let k = 0; k < m.w; k++) {
+      if (!m.isOpen(k, y)) continue;
+      const on = g.lit[m.at(k, y)] === 1, px = HALF + k * HALF, py = HALF + y * HALF;
+      if (!on) {
+        if (!clearing) put(x, dark, px, py);
+        continue;
+      }
+      const wob = this.calm ? 0 : Math.sin(this.time * 0.06 + k * 1.7 + y * 2.3);
+      if (clearing) {
+        const s = 1 + 0.35 * Math.abs(Math.sin(this.time * 0.07 + k + y));
+        x.save();
+        x.translate(px, py);
+        x.scale(s, s);
+        put(x, lit);
+        x.restore();
+      } else x.drawImage(lit.img, px - lit.w / 2 - wob * 0.3, py - lit.h / 2 - wob * 0.6, lit.w, lit.h);
+    }
+  }
+
+  private winds(g: Game): void {
+    const x = this.x, m = g.maze, move = this.calm ? 0.5 : (this.time * 0.03) % 1;
     for (let i = 0; i < g.flow.length; i++) {
       const f = g.flow[i] ?? 0;
       if (f === 0) continue;
@@ -384,52 +310,20 @@ export class Renderer {
       x.save();
       x.translate(HALF + (k + DX[d] * move) * HALF, HALF + (y + DY[d] * move) * HALF);
       x.rotate((d * Math.PI) / 2);
-      x.globalAlpha = 0.5 * Math.sin(Math.PI * move) + 0.12;
-      put(x, art);
+      x.globalAlpha = 0.62 * Math.sin(Math.PI * move) + 0.1;
+      put(x, wind());
       x.restore();
     }
   }
 
-  private worm(px: number, py: number): void {
+  private matchAt(px: number, py: number): void {
     const x = this.x;
+    halo(x, px, py - 8, 30 + Math.sin(this.time * 0.12) * 3, '255,230,130', 0.8);
     x.save();
-    x.translate(px, py);
-    glow(x, 0, 0, 30, '140,160,255', 0.8);
-    x.rotate(-this.time * (this.calm ? 0.01 : 0.06));
-    put(x, sprite('worm', 56, 56, wormArt));
-    x.restore();
-    x.fillStyle = '#05041a';
-    x.beginPath(); x.arc(px, py, 5.5, 0, TAU); x.fill();
-    x.lineWidth = 1.6;
-    x.strokeStyle = '#cfe0ff';
-    x.stroke();
-  }
-
-  private prism(px: number, py: number): void {
-    const x = this.x;
-    glow(x, px, py, 27 + Math.sin(this.time * 0.1) * 4, '200,225,255', 0.85);
-    x.save();
-    x.translate(px, py + Math.sin(this.time * 0.07) * 2);
-    x.rotate(Math.sin(this.time * 0.04) * 0.3);
-    put(x, sprite('prism', 30, 30, prismArt));
-    x.restore();
-  }
-
-  private comet(c: Mover, life: number): void {
-    const x = this.x, px = unitX(c), py = unitY(c);
-    if (life < 120 && life % 16 < 6) return;
-    glow(x, px, py, 30, '140,255,235', 0.95);
-    x.save();
-    x.translate(px, py);
-    x.rotate(this.time * 0.06);
-    for (let k = 0; k < 6; k++) {
-      x.rotate(TAU / 6);
-      path(x, [[0, -4], [4, -9], [0, -17], [-4, -9]]);
-      x.fillStyle = k % 2 ? '#9ffbea' : '#ffe9a8';
-      x.fill();
-    }
-    x.fillStyle = rad(x, -1, -1, 0, 7, '#ffffff', '#c9fff5', '#3fc7b5');
-    x.beginPath(); x.arc(0, 0, 6, 0, TAU); x.fill();
+    x.translate(px, py + Math.sin(this.time * 0.07) * 1.6);
+    x.rotate(Math.sin(this.time * 0.05) * 0.14);
+    x.scale(0.95, 0.95);
+    put(x, match());
     x.restore();
   }
 
@@ -437,24 +331,23 @@ export class Renderer {
     const x = this.x, out = g.isOut(f) || g.phase === Phase.Hit;
     if (f.kind === Kind.Echo && f.state === 0) {
       // Its place is marked while it gathers itself.
-      if (g.trail.length > ECHO_DELAY - 120 && f.daze === 0) glow(x, HALF + g.homeX * HALF, HALF + g.homeY * HALF, 18 + 8 * Math.sin(this.time * 0.2), '190,110,255', 0.7);
+      if (g.trail.length > ECHO_DELAY - 120 && f.daze === 0) halo(x, HALF + g.homeX * HALF, HALF + g.homeY * HALF, 24 + 6 * Math.sin(this.time * 0.2), '60,30,110', 0.8);
       return;
     }
+    if (!out && f.wake - g.playT > 300) return;
     const px = unitX(f), py = unitY(f);
     x.save();
     x.translate(px, py);
-    if (!out) x.globalAlpha = f.wake - g.playT > 300 ? 0 : 0.35 + 0.15 * Math.sin(this.time * 0.12);
-    if (x.globalAlpha > 0.01) {
-      const face = faces(f.kind) && f.dir >= 0 ? (f.dir * Math.PI) / 2 + Math.PI / 2 : 0;
+    if (!out) x.globalAlpha = 0.45 + 0.15 * Math.sin(this.time * 0.12);
+    const left = f.dir === 2 || (f.dir !== 0 && unitX(g.hero) < px);
+    drawFoe(x, { kind: f.kind, t: this.time + f.n * 11, state: f.state, look: Math.atan2(unitY(g.hero) - py, unitX(g.hero) - px), dazed: f.daze > 0, left, moving: f.dir >= 0 && out });
+    if (f.daze > 0 && (f.daze > 70 || f.daze % 14 < 8)) for (let k = 0; k < 3; k++) {
+      const a = this.time * 0.09 + (k * TAU) / 3;
       x.save();
-      x.rotate(face);
-      x.scale(0.96, 0.96);
-      drawFoe(x, { kind: f.kind, t: this.time, state: f.state, look: Math.atan2(unitY(g.hero) - py, unitX(g.hero) - px), dazed: f.daze > 0 });
+      x.translate(Math.cos(a) * 17, -22 + Math.sin(a) * 5);
+      x.scale(0.62, 0.62);
+      put(x, litStar());
       x.restore();
-      if (f.daze > 0 && (f.daze > 70 || f.daze % 14 < 8)) for (let k = 0; k < 4; k++) {
-        const a = this.time * 0.09 + (k * TAU) / 4;
-        put(x, sprite('lit', 28, 28, litStar), Math.cos(a) * 17, -8 + Math.sin(a) * 7);
-      }
     }
     x.restore();
   }
@@ -462,101 +355,102 @@ export class Renderer {
   private beam(g: Game): void {
     if (g.beamT === 0 || !g.beam) return;
     const x = this.x, k = g.beamT / 34, bx = HALF + g.beam.x * HALF, by = HALF + g.beam.y * HALF;
-    x.save();
-    x.globalCompositeOperation = 'lighter';
     x.lineCap = 'round';
-    for (const d of DIRS) {
-      const n = g.beam.reach[d];
-      if (n === 0) continue;
-      const ex = bx + DX[d] * n * HALF, ey = by + DY[d] * n * HALF;
-      for (const [w, c, a] of [[34, '255,190,80', 0.22], [18, '255,225,150', 0.5], [6, '255,255,245', 1]] as const) {
-        x.lineWidth = w * (0.35 + 0.65 * k);
-        x.strokeStyle = `rgba(${c},${a * k})`;
-        x.beginPath(); x.moveTo(bx, by); x.lineTo(ex, ey); x.stroke();
+    for (const [w, c, a] of [[40, '255,236,150', 0.45], [26, '255,246,200', 0.75], [9, '255,255,255', 1]] as const) {
+      x.lineWidth = w * (0.4 + 0.6 * k);
+      x.strokeStyle = `rgba(${c},${a * Math.min(1, k * 1.6)})`;
+      for (const d of DIRS) {
+        const n = g.beam.reach[d];
+        if (n === 0) continue;
+        x.beginPath();
+        x.moveTo(bx, by);
+        x.lineTo(bx + DX[d] * n * HALF, by + DY[d] * n * HALF);
+        x.stroke();
       }
-      glow(x, ex, ey, 26, '255,220,140', k);
     }
-    x.restore();
   }
 
   private hero(g: Game): void {
     if (g.phase === Phase.Hit || g.phase === Phase.Over) return;
     const x = this.x, h = g.hero;
-    if (h.dir >= 0) {
-      const to = (h.dir * Math.PI) / 2 + Math.PI / 2;
-      let turn = (to - this.angle) % TAU;
-      if (turn > Math.PI) turn -= TAU;
-      if (turn < -Math.PI) turn += TAU;
-      this.angle += turn * 0.4;
-    }
+    if (h.dir === 0) this.left = false;
+    if (h.dir === 2) this.left = true;
     const px = unitX(h), py = unitY(h);
-    glow(x, px, py, 64, '255,205,120', 0.34); // it lights the walls around it
-    if (g.phase === Phase.Play && h.dir >= 0 && Math.random() < 0.6 && this.bits.length < 400) {
-      this.bits.push({ x: px - DX[h.dir as Dir] * 15, y: py - DY[h.dir as Dir] * 15, vx: rand(-0.4, 0.4) - DX[h.dir as Dir] * 0.8, vy: rand(-0.4, 0.4) - DY[h.dir as Dir] * 0.8, life: 24, max: 24, rgb: '110,200,255', size: 1.7 });
-    }
     x.save();
     x.translate(px, py);
-    if (g.inv > 0 && g.inv % 12 < 5) x.globalAlpha = 0.45;
-    x.rotate(this.angle);
-    x.scale(0.96, 0.96);
-    drawHero(x, { t: this.time, moving: h.dir >= 0 && h.p < STEP, slow: g.slow > 0 });
+    if (g.inv > 0 && g.inv % 12 < 5) x.globalAlpha = 0.5;
+    x.scale(0.98, 0.98);
+    drawHero(x, { t: this.time, moving: h.dir >= 0, slow: g.slow > 0, left: this.left });
     x.restore();
     if (g.inv > 0) {
-      x.lineWidth = 2;
-      x.strokeStyle = `rgba(160,225,255,${0.35 + 0.3 * Math.sin(this.time * 0.2)})`;
-      x.beginPath(); x.arc(px, py, 25, 0, TAU); x.stroke();
+      x.lineWidth = 2.4;
+      x.setLineDash([6, 5]);
+      x.lineDashOffset = -this.time * 0.4;
+      x.strokeStyle = '#fff6cf';
+      x.beginPath();
+      x.arc(px, py, 27, 0, TAU);
+      x.stroke();
+      x.setLineDash([]);
     }
     if (g.slow > 0) {
       x.globalAlpha = Math.min(1, g.slow / 40);
-      put(x, sprite('web', 46, 46, webArt), px, py);
+      put(x, web(), px, py);
       x.globalAlpha = 1;
     }
   }
 
-  private particles(dt: number): void {
+  /** Scraps of paper, rings and words. */
+  private loose(dt: number): void {
     const x = this.x;
-    x.save();
-    x.globalCompositeOperation = 'lighter';
-    this.bits = this.bits.filter((b) => {
+    this.scraps = this.scraps.filter((b) => {
       b.life -= dt;
       if (b.life <= 0) return false;
-      const drag = Math.pow(0.96, dt);
-      b.vx *= drag;
-      b.vy *= drag;
+      b.vx *= Math.pow(0.965, dt);
+      b.vy = b.vy * Math.pow(0.965, dt) + 0.045 * dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
-      glow(x, b.x, b.y, b.size * 2.2, b.rgb, Math.min(1, (b.life / b.max) * 1.2));
+      b.turn += b.spin * dt;
+      x.save();
+      x.translate(b.x, b.y);
+      x.rotate(b.turn);
+      x.scale(1, Math.abs(Math.cos(b.turn * 1.7)) * 0.8 + 0.2);
+      x.globalAlpha = Math.min(1, (b.life / b.max) * 2);
+      x.fillStyle = b.color;
+      x.fillRect(-b.size / 2, -b.size * 0.35, b.size, b.size * 0.7);
+      x.restore();
       return true;
     });
     this.rings = this.rings.filter((r) => {
       r.life -= dt;
       if (r.life <= 0) return false;
       const k = 1 - r.life / r.max;
-      x.lineWidth = r.w * (1 - k) + 0.4;
-      x.strokeStyle = `rgba(${r.rgb},${(1 - k) * 0.9})`;
-      x.beginPath(); x.arc(r.x, r.y, r.r1 * (1 - Math.pow(1 - k, 2.4)), 0, TAU); x.stroke();
+      x.globalAlpha = 1 - k;
+      x.lineWidth = 4 * (1 - k) + 1;
+      x.setLineDash([9, 7]);
+      x.strokeStyle = r.color;
+      x.beginPath();
+      x.arc(r.x, r.y, r.r1 * (1 - Math.pow(1 - k, 2.4)), 0, TAU);
+      x.stroke();
+      x.setLineDash([]);
+      x.globalAlpha = 1;
       return true;
     });
-    x.restore();
     x.textAlign = 'center';
-    this.notes = this.notes.filter((t) => {
-      t.life -= dt;
-      if (t.life <= 0) return false;
-      t.y -= 0.35 * dt;
-      x.globalAlpha = Math.min(1, (t.life / t.max) * 2);
-      x.font = '800 14px Inter, system-ui, sans-serif';
-      const tx = Math.max(70, Math.min(this.w - 70, t.x)), ty = Math.max(20, t.y);
-      x.lineWidth = 4;
-      x.strokeStyle = 'rgba(8,16,48,.9)';
-      x.strokeText(t.text, tx, ty);
-      x.fillStyle = t.color;
-      x.fillText(t.text, tx, ty);
+    x.lineJoin = 'round';
+    this.notes = this.notes.filter((n) => {
+      n.life -= dt;
+      if (n.life <= 0) return false;
+      n.y -= 0.35 * dt;
+      x.globalAlpha = Math.min(1, (n.life / n.max) * 2);
+      x.font = `bold 17px ${SERIF}`;
+      const tx = Math.max(70, Math.min(this.w - 70, n.x)), ty = Math.max(22, n.y);
+      x.lineWidth = 5;
+      x.strokeStyle = '#fffdf6';
+      x.strokeText(n.text, tx, ty);
+      x.fillStyle = n.color;
+      x.fillText(n.text, tx, ty);
       return true;
     });
     x.globalAlpha = 1;
   }
 }
-
-/** Canvas pixels to the unit, at most. */
-export const SHARPEST = SS;
-export type { Sprite };

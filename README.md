@@ -6,7 +6,7 @@ every creature, maze, sky and sound is drawn or synthesised in code.
 
 **Play it: https://bozcode.com/goapp/starkindle/**
 
-Fly a lantern-hearted comet through nine dark skies and light every star. Lit stars
+Guide a paper lamplighter through nine skies of paper cloud and light every star. Lit stars
 stay lit and slow the creatures hunting you. A flare shoots light down every corridor
 you can see, dazing whatever is there. Every maze is generated, joined up, free of
 dead ends, and the same upside down.

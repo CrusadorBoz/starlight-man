@@ -16,14 +16,14 @@ type Mode = 'loading' | 'title' | 'play' | 'paused' | 'over' | 'failed';
 type Screen = 'loading' | 'fail' | 'title' | 'pause' | 'pick' | 'over' | 'won';
 
 const TICK_MS = 1000 / 60;
-const NAMES = ['The First Spark', 'Tidal Glass', 'Echo Gallery', 'Moonstone Stair', 'The Moth Garden', 'The Long Quiet', 'Amethyst Hollow', 'Glimmerdeep', 'Crown of Lanterns'] as const;
+const NAMES = ['The First Spark', 'Kite Weather', 'Echo Gallery', 'Apricot Evening', 'The Moth Garden', 'The Long Quiet', 'Moonrise', 'Owl Light', 'Crown of Lanterns'] as const;
 interface CharmText { readonly name: string; readonly text: string }
 const CHARMS: readonly CharmText[] = [
-  { name: 'Swift fins', text: 'You fly faster.' },
+  { name: 'Quick boots', text: 'You walk faster.' },
   { name: 'Long flare', text: 'Flares reach further and daze for longer.' },
   { name: 'Spare spark', text: 'One more life.' },
   { name: 'Deep lantern', text: 'Start each sky with one more flare.' },
-  { name: 'Silk scales', text: 'Webs no longer slow you.' },
+  { name: 'Silk coat', text: 'Webs no longer slow you.' },
   { name: 'Bright wake', text: 'Creatures are slower among your lit stars.' },
 ];
 const SCRAP: CharmText = { name: 'Stardust', text: 'You carry every charm. Take 2,000 points.' };
@@ -378,7 +378,7 @@ function openHelp(): void {
 for (const id of ['helpBtn', 'helpBtn2']) btn(id).addEventListener('click', openHelp);
 btn('helpClose').addEventListener('click', () => help.close());
 help.addEventListener('click', (e) => { // a click on the shade beside the panel
-  if (e.target === help && e.clientX < help.getBoundingClientRect().left) help.close();
+  if (e.target === help && e.clientX > help.getBoundingClientRect().right) help.close();
 });
 help.addEventListener('close', () => {
   if (mode === 'paused') btn('resumeBtn').focus(quiet);
@@ -406,8 +406,8 @@ function guide(now: number): void {
     x.setTransform(SS, 0, 0, SS, 0, 0);
     x.clearRect(0, 0, 72, 72);
     x.translate(36, 37);
-    x.scale(1.22, 1.22);
-    drawFoe(x, { kind, t, state: kind === Kind.Prowler ? 1 : 0, look: t / 60, dazed: false });
+    x.scale(1.18, 1.18);
+    drawFoe(x, { kind, t, state: kind === Kind.Prowler ? 1 : 0, look: t / 60, dazed: false, left: false, moving: !calm });
   });
 }
 
