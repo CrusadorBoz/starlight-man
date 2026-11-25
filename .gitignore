@@ -1,0 +1,7 @@
+# compiled output (made by build.sh)
+/starkindle
+/starkindle.bak-*
+/assets/js/
+/node_modules/
+# deploy scripts stay off GitHub (server layout)
+/deploy/

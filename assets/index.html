@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Starkindle — light the maze, one star at a time | bozcode.com</title>
+  <meta name="description" content="An original maze game. Fly a lantern-hearted comet, light every star and keep clear of five kinds of creature. Every maze is new. Free to play in your browser.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://bozcode.com/goapp/starkindle/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Starkindle">
+  <meta property="og:description" content="An original maze game: light every star. Every maze is new.">
+  <meta property="og:url" content="https://bozcode.com/goapp/starkindle/">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="/static/css/fonts.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/static/css/back-button.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" width="40" height="40">
+      <div>
+        <h1>Starkindle</h1>
+        <p class="sub">Nine dark skies. One small light.</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="helpBtn" class="btn" type="button" aria-haspopup="dialog">Instructions</button>
+      <button id="soundBtn" class="btn" type="button" aria-pressed="true">Sound on</button>
+      <button id="pauseBtn" class="btn" type="button" disabled>Pause</button>
+      <a class="site-back site-back--inline" href="/"><span class="site-back-arrow" aria-hidden="true">&#8592;</span> Back to Home</a>
+    </div>
+  </header>
+
+  <main class="layout" id="layout">
+    <section class="stage" id="stage" aria-label="Game">
+      <div class="hud">
+        <div class="cell"><span class="k">Score</span><span class="v" id="score">0</span></div>
+        <div class="cell"><span class="k">Best</span><span class="v" id="best">0</span></div>
+        <div class="cell"><span class="k">Streak</span><span class="v" id="mult">&times;1</span></div>
+        <div class="cell"><span class="k">Sky</span><span class="v" id="level">1</span></div>
+        <div class="cell"><span class="k">Lit</span><span class="v" id="stars">0%</span></div>
+        <div class="cell"><span class="k">Sparks</span><span class="pips" id="sparks" role="img" aria-label="Sparks"></span></div>
+        <div class="cell"><span class="k">Flares</span><span class="pips pips--flare" id="flares" role="img" aria-label="Flares"></span></div>
+      </div>
+
+      <div class="screen" id="screen">
+        <canvas id="sky" width="960" height="640" tabindex="0" role="application" aria-label="Starkindle play area. Arrow keys steer, space fires a flare, P pauses."></canvas>
+        <div class="banner" id="banner" role="status" aria-live="polite"><span id="bannerTitle"></span><span id="bannerSub"></span></div>
+
+        <div class="veil" id="veil">
+          <div class="card" id="loading"><h2>Trimming the lantern…</h2><noscript><p>Starkindle needs JavaScript.</p></noscript></div>
+          <div class="card" id="fail" hidden><h2>The light went out</h2><p id="failText"></p></div>
+
+          <div class="card card--title" id="title" hidden>
+            <p class="logo">Star<b>kindle</b></p>
+            <fieldset>
+              <legend>Choose your lantern</legend>
+              <label><input type="radio" name="diff" value="0"><span>Warm<small>5 sparks, gentle</small></span></label>
+              <label><input type="radio" name="diff" value="1" checked><span>Bright<small>3 sparks</small></span></label>
+              <label><input type="radio" name="diff" value="2"><span>Bare<small>2 sparks, fierce</small></span></label>
+            </fieldset>
+            <div class="row row--title"><button id="startBtn" class="btn btn--go" type="button">Set out</button><button id="helpBtn2" class="btn btn--big" type="button" aria-haspopup="dialog">Instructions</button></div>
+          </div>
+
+          <div class="card" id="pause" hidden>
+            <h2>Paused</h2>
+            <div class="row"><button id="resumeBtn" class="btn btn--go" type="button">Resume</button><button id="quitBtn" class="btn" type="button">Quit run</button></div>
+          </div>
+
+          <div class="card" id="pick" hidden>
+            <h2 id="pickTitle">The sky is alight</h2>
+            <p>Choose one charm.</p>
+            <div class="opts">
+              <button id="opt0" class="opt" type="button"><kbd>1</kbd><span><b id="opt0name"></b><small id="opt0text"></small></span></button>
+              <button id="opt1" class="opt" type="button"><kbd>2</kbd><span><b id="opt1name"></b><small id="opt1text"></small></span></button>
+              <button id="opt2" class="opt" type="button"><kbd>3</kbd><span><b id="opt2name"></b><small id="opt2text"></small></span></button>
+            </div>
+          </div>
+
+          <div class="card" id="over" hidden>
+            <h2 id="overTitle">The light goes out</h2>
+            <dl class="stats" id="overStats"></dl>
+            <div class="row"><button id="againBtn" class="btn btn--go" type="button">Light it again</button><button id="homeBtn" class="btn" type="button">Title screen</button></div>
+          </div>
+
+          <div class="card" id="won" hidden>
+            <h2>Nine skies, all alight</h2>
+            <p>You kindled every star there was. The skies beyond are darker and quicker.</p>
+            <dl class="stats" id="wonStats"></dl>
+            <button id="onBtn" class="btn btn--go" type="button">Fly on</button>
+          </div>
+        </div>
+      </div>
+      <button id="flareBtn" class="flare-btn" type="button">Flare (1)</button>
+    </section>
+  </main>
+
+  <dialog class="help" id="help" aria-labelledby="helpTitle">
+    <div class="help-head"><h2 id="helpTitle">Instructions</h2><button id="helpClose" class="btn" type="button">Close</button></div>
+    <div class="help-body">
+    <section>
+      <h3>How to play</h3>
+      <dl class="keys">
+        <div><dt><kbd>&#8592;</kbd> <kbd>&#8593;</kbd> <kbd>&#8595;</kbd> <kbd>&#8594;</kbd> or <kbd>WASD</kbd></dt><dd>Steer</dd></div>
+        <div><dt><kbd>Space</kbd> or <kbd>X</kbd></dt><dd>Fire a flare</dd></div>
+        <div><dt><kbd>P</kbd> &nbsp;<kbd>M</kbd> &nbsp;<kbd>H</kbd></dt><dd>Pause, sound, this panel</dd></div>
+      </dl>
+      <p>On a phone, swipe on the maze to steer. Keep your finger down and keep swiping.</p>
+
+      <h3>Light every star</h3>
+      <p>Fly over a dark star to light it, and it stays lit. Light them all to clear the sky. Light many without a pause to build a <strong>streak</strong> worth up to &times;5.</p>
+      <p>Creatures are slower among lit stars, so your own trail is the safest place to run.</p>
+
+      <h3>Flares</h3>
+      <p>A <strong>flare</strong> shoots light down every corridor you can see. It lights the stars there and <strong>dazes</strong> every creature in its path, so you can fly straight past. Daze several at once for more points. Prisms give you another flare.</p>
+
+      <h3>In the maze</h3>
+      <p><strong>Slipstreams</strong> (arrows) speed you along or hold you back. <strong>Wormholes</strong> come in pairs, and only you can use them. A passing <strong>comet</strong> is worth catching. Every 25,000 points is an extra spark.</p>
+    </section>
+    <section>
+      <h3>The creatures</h3>
+      <ul class="guide" id="guide"></ul>
+    </section>
+    </div>
+  </dialog>
+
+  <footer class="foot"><p>Written in TypeScript and served by Go. Mazes, creatures, art and sounds are original to bozcode.com.</p></footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

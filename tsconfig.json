@@ -1,0 +1,30 @@
+{
+  // Starkindle. Same strictness as bozcode.com's frontend/tsconfig.json.
+  // src/*.ts compiles to assets/js/*.js (browsers cannot run TypeScript
+  // itself). Edit the .ts files, never the .js. Node can run the .ts files as
+  // they are, which is how tests/ works.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "noEmitOnError": true,
+    "rootDir": "src",
+    "outDir": "assets/js",
+    "newLine": "lf"
+  },
+  "include": ["src/**/*.ts"]
+}
