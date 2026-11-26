@@ -1,4 +1,4 @@
-// Starkindle: drawing helpers. Everything looks cut from paper: flat shapes, a
+// Starlight Man: drawing helpers. Everything looks cut from paper: flat shapes, a
 // white die-cut edge and a soft shadow underneath.
 
 export type Ctx = CanvasRenderingContext2D;

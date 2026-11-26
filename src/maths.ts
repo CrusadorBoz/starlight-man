@@ -1,4 +1,4 @@
-// Starkindle: whole-number maths. The rules use integers only, so the same seed
+// Starlight Man: whole-number maths. The rules use integers only, so the same seed
 // and the same key presses always give exactly the same game.
 
 /** Divide, dropping the remainder (towards zero). */

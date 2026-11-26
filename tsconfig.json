@@ -1,5 +1,5 @@
 {
-  // Starkindle. Same strictness as bozcode.com's frontend/tsconfig.json.
+  // Starlight Man. Same strictness as bozcode.com's frontend/tsconfig.json.
   // src/*.ts compiles to assets/js/*.js (browsers cannot run TypeScript
   // itself). Edit the .ts files, never the .js. Node can run the .ts files as
   // they are, which is how tests/ works.

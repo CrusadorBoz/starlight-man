@@ -1,8 +1,8 @@
-// Server for Starkindle. The game is TypeScript (src/, compiled to
+// Server for Starlight Man. The game is TypeScript (src/, compiled to
 // assets/js/) and runs in the player's browser, so this program only hands out
 // files: no sessions, no cookies, nothing stored.
 //
-// It sits behind nginx at /goapp/starkindle/. nginx strips that prefix, so
+// It sits behind nginx at /goapp/starlight-man/. nginx strips that prefix, so
 // this server sees plain paths like "/" and "/js/app.js".
 package main
 
@@ -97,7 +97,7 @@ func main() {
 		log.Fatal(err)
 	}
 	addr := defaultAddr
-	if a := os.Getenv("STARKINDLE_ADDR"); a != "" {
+	if a := os.Getenv("STARLIGHT_MAN_ADDR"); a != "" {
 		addr = a
 	}
 	srv := &http.Server{
@@ -108,6 +108,6 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	log.Printf("starkindle listening on %s", addr)
+	log.Printf("starlight-man listening on %s", addr)
 	log.Fatal(srv.ListenAndServe())
 }

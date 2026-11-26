@@ -1,4 +1,4 @@
-// Starkindle: the painted paper sky behind the maze. Daylight, sunset, moonlight.
+// Starlight Man: the painted paper sky behind the maze. Daylight, sunset, moonlight.
 
 import { TAU, context, grain, seeded } from './paint.ts';
 import type { Ctx } from './paint.ts';

@@ -1,4 +1,4 @@
-// Starkindle: the game. Moving, lighting stars, flares, skies, charms and scoring.
+// Starlight Man: the game. Moving, lighting stars, flares, skies, charms and scoring.
 // The creatures are in foes.ts and the maze in maze.ts. Nothing in these files
 // knows about browsers or drawing.
 

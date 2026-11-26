@@ -1,4 +1,4 @@
-// Starkindle: the lamplighter and the paper animals. Each is a handful of cut
+// Starlight Man: the lamplighter and the paper animals. Each is a handful of cut
 // shapes with a white edge, drawn once per step of its walk and kept.
 
 import { TAU, halo, put, round, sprite, starPath, sticker } from './paint.ts';

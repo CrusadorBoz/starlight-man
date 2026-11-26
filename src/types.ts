@@ -1,4 +1,4 @@
-// Starkindle: the shapes the rules work with.
+// Starlight Man: the shapes the rules work with.
 
 import type { Dir } from './maze.ts';
 

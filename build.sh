@@ -18,5 +18,5 @@ rm -rf assets/js
 node --test tests/*.test.ts | tail -8
 go vet ./...
 go test ./...
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o starkindle .
-ls -l starkindle
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o starlight-man .
+ls -l starlight-man

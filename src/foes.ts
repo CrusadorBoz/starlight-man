@@ -1,4 +1,4 @@
-// Starkindle: the creatures. Where they start, how they choose their way, and
+// Starlight Man: the creatures. Where they start, how they choose their way, and
 // what each does to you.
 
 import { div } from './maths.ts';

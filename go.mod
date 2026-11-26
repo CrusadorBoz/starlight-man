@@ -1,4 +1,4 @@
-module starkindle
+module starlight-man
 
 go 1.22
 

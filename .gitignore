@@ -1,13 +1,13 @@
 # compiled output (made by build.sh)
-/starkindle
-/starkindle.bak-*
+/starlight-man
+/starlight-man.bak-*
 /assets/js/
 /node_modules/
 # deploy scripts stay off GitHub (server layout)
 /deploy/
 
 # Previous, staged and failed builds kept beside the running one
-/starkindle.*
+/starlight-man.*
 
 # Never commit: databases, cookie jars, keys
 *.db

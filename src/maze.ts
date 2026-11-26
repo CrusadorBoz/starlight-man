@@ -1,4 +1,4 @@
-// Starkindle: the maze. Every one is generated, joined up, free of dead ends, and
+// Starlight Man: the maze. Every one is generated, joined up, free of dead ends, and
 // looks the same when turned upside down, like a galaxy.
 //
 // The maze is a grid of cells, but everything moves on a finer grid of nodes: the

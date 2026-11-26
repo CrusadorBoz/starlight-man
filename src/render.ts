@@ -1,4 +1,4 @@
-// Starkindle: everything on the canvas.
+// Starlight Man: everything on the canvas.
 
 import { crane, darkStar, door, drawFoe, drawHero, litStar, match, web, wind } from './creatures.ts';
 import { ECHO_DELAY } from './foes.ts';

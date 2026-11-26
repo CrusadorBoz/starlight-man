@@ -1,4 +1,4 @@
-// Starkindle: sound, synthesised on the spot. Nothing is sampled or copied.
+// Starlight Man: sound, synthesised on the spot. Nothing is sampled or copied.
 import { Ev } from './types.ts';
 import type { GameEvent } from './types.ts';
 

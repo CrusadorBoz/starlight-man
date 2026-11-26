@@ -1,4 +1,4 @@
-// Starkindle: the page. Reads the controls, keeps time, runs the rules and shows
+// Starlight Man: the page. Reads the controls, keeps time, runs the rules and shows
 // what they report.
 
 import { GUIDE, drawFoe } from './creatures.ts';
@@ -40,10 +40,10 @@ const btn = (id: string): HTMLButtonElement => el(id, HTMLButtonElement);
 const num = new Intl.NumberFormat('en-US');
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** This browser's small memory; a private window may refuse it. */
+/** This browser's small memory; a private window may refuse it. Until 2026-11-25 the game was called Starkindle, so older scores are under that name. */
 const store = {
-  get(k: string, d: string): string { try { return localStorage.getItem('starkindle:' + k) ?? d; } catch { return d; } },
-  set(k: string, v: string): void { try { localStorage.setItem('starkindle:' + k, v); } catch { /* not kept */ } },
+  get(k: string, d: string): string { try { return localStorage.getItem('starlight-man:' + k) ?? localStorage.getItem('starkindle:' + k) ?? d; } catch { return d; } },
+  set(k: string, v: string): void { try { localStorage.setItem('starlight-man:' + k, v); } catch { /* not kept */ } },
 };
 
 const canvas = el('sky', HTMLCanvasElement);
@@ -166,7 +166,7 @@ function setMode(m: Mode): void {
   if (m === 'paused') { showOnly('pause'); btn('resumeBtn').focus(quiet); }
 }
 function fail(err: unknown): void {
-  console.error('Starkindle stopped:', err);
+  console.error('Starlight Man stopped:', err);
   mode = 'failed';
   box('failText').textContent = 'Something went wrong. Reload the page to play again.';
   showOnly('fail');
